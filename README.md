@@ -19,5 +19,11 @@ Note: This is a work in progress project that has certain aspects which are high
 pip install geoarchive
 ```
 
-## Using
+## Modules
+
+We are designing the package to contain individual modules for interacting with different types of third party repository systems that serve as sources for GeoArchive collections. Each module has its own specific requirements and dependencies for what it needs to do to make its specific connections. All modules will likely require some type of specific connection information.
+
+### Zotero
+
+Our initial use case is for using a Zotero group library as a repository of document-type materials. This module leverages the pyzotero package to create an instance of an API connection to a specified Group Library in Zotero and a set of functions for working with that connection in a variety of ways. It requires a library_id and an api_key, which can be supplied through environment variables or through passed variables in instantiating the connection. Certain functionality also requires the specification of a inventory_item, which is the identifier for a specific item stored in the library that contains a cache of metadata.
 
