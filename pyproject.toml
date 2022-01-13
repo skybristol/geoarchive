@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "geoarchive"
-version = "0.1.0"
+version = "0.1.2"
 description = "Utilities for the USGS GeoArchive"
 authors = ["Sky Bristol <sbristol@usgs.gov>"]
 license = "The Unlicense"
