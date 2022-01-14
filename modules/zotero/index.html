@@ -87,6 +87,14 @@
             
             <li class="nav-item" data-level="1"><a href="#zotero" class="nav-link">Zotero</a>
               <ul class="nav flex-column">
+            <li class="nav-item" data-level="2"><a href="#prerequisites" class="nav-link">Prerequisites</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#usage-pattern" class="nav-link">Usage Pattern</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-level="2"><a href="#api" class="nav-link">API</a>
               <ul class="nav flex-column">
               </ul>
@@ -99,14 +107,59 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="zotero">Zotero</h1>
-<p>Our initial GeoArchive use case is for using a Zotero group library as a repository of document-type materials. Zotero is a reference management software tool that includes an online shared storage offering where Group Libraries can be set up for citation metadata and attached file content.</p>
-<p>This module leverages the pyzotero package to create an instance of an API connection to a specified Group Library in Zotero and a set of functions for working with that connection in a variety of ways. It requires a library_id and an api_key, which can be supplied through environment variables or through passed variables in instantiating the connection. Certain functionality also requires the specification of a inventory_item, which is the identifier for a specific item stored in the library that contains a cache of metadata.</p>
+<p>Our initial GeoArchive use case explores using a Zotero group library as a repository for document-type materials. Zotero is a reference management software tool that includes an online shared storage offering where Group Libraries can be set up for citation metadata and attached file content.</p>
+<p>This module leverages the <a href="https://pyzotero.readthedocs.io/">pyzotero</a> package to create an instance of an API connection to a specified Group Library in Zotero and a set of functions for working with that connection in a variety of ways. It requires a library_id and an api_key, which can be supplied through environment variables or through passed variables in instantiating the connection. Certain functionality also requires the specification of a inventory_item, which is the identifier for a specific item stored in the library that contains a cache of metadata.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Connecting to Zotero programmatically requires an API key provided by a Zotero user. An API key will provide read and potentially write access to one or more libraries. Instantiation of a Zot object using the geoarchive.zotero module requires both a library_id and an api_key. Library ID (aka "group") values are public information (unless the library is completely restricted) and viewable in the URL pattern in the Zotero web interface (e.g., https://www.zotero.org/groups/4530692). API keys are secret and should be carefully guarded.</p>
+<h2 id="usage-pattern">Usage Pattern</h2>
+<p>One potential usage pattern would be to periodically run a process to read everything from a Zotero Group Library and send metadata and files into some other store. This particular mockup is based on our use case for sending a set of documents through processing with the <a href="https://geodeepdive.org/">xDD</a> Digital Library and Cyberinfrastructure.</p>
+<p>First, you may want to set environment variables for the two key pieces of information - library ID and API key - as opposed to passing them in via the function. For instance, you might set these for a Docker container executing this process via the deploy process.</p>
+<pre><code class="language-bash">export ZOTERO_LIBRARY_ID=4530692
+export ZOTERO_API_KEY=MyMadeUpAPI_Key
+</code></pre>
+<p>Next, you'll need some Python code to handle processing as needed for your scenario. The following mockup provides a rough outline for how the geoarchive.zotero module would be used to interace with a file system or some other data store. Note that the Zot() instance established includes "z", which is the basic connection object from pyzotero. This means you can use any standard function available from pyzotero with that object that has been authenticated to a Zotero Group Library. The dump() and file() options in the dummy file_handler() function below are from pyzotero.</p>
+<pre><code class="language-python">from geoarchive import zotero
+import json
+import boto3
+
+z_lib = zotero.Zot()
+
+# This returns a list of dictionaries in a particular target schema
+lib_xdd_format = z_lib.item_export(target_schema=&quot;xdd&quot;, output_format=&quot;dict&quot;)
+
+def metadata_handler(output_file, lib_meta):
+    # Dump the metadata to a file
+    json.dump(lib_meta, open(output_file, &quot;r&quot;))
+
+    # Or you might want to load metadata to a database or whatever
+
+def file_handler(zotero_lib, library_item, output_path=None, bucket_name=None):
+    if output_path is not None:
+        # If you have a mounted disc to send the files to
+        zotero_lib.z.dump(
+            library_item[&quot;file_key&quot;],
+            filename=library_item[&quot;filename&quot;],
+            path=output_path
+        )
+    elif bucket_name is not None:
+        # If you need to get the file as bytes and send it somewhere else
+        f = zotero_lib.z.file(library_item[&quot;file_key&quot;])
+        s3_client = boto3.client('s3')
+        client.put_object(Body=f, Bucket=bucket_name, Key=library_item[&quot;filename&quot;])
+
+# Send the metadata somewhere
+metadata_handler(lib_xdd_format)
+
+# Send the files somewhere
+for item in lib_xdd_format:
+    file_handler(z_lib, item, output_path=&quot;z_lib/files&quot;)
+</code></pre>
 <h2 id="api">API</h2>
 <div class="autodoc">
 <div class="autodoc-signature"><em>class </em><code>geoarchive.zotero.<strong>Zot</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">library_id</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">api_key</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"></div>
 <div class="autodoc-members">
-<div class="autodoc-signature"><code><strong>baseline_cache</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-signature"><code><strong>baseline_cache</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item=None</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"><p>This function takes the files found in a specified output_path (from baseline or update) for
 items, collections, and tags and uploads these to the specified inventory item in the library.
 This function can only be successfully operated using an API key with write permissions.</p>
@@ -119,7 +172,7 @@ This function can only be successfully operated using an API key with write perm
 <div class="autodoc-docstring"><p>This function gets all collections for a library and dumps them as a JSON file to a specified output path.</p>
 <p>Args:
     output_path (str, optional): Relative or absolute path to output json file. Defaults to "data".</p></div>
-<div class="autodoc-signature"><code><strong>baseline_items</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-signature"><code><strong>baseline_items</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item=None</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"><p>This function gets all items (metadata and files) for a library and dumps them as a JSON file to a
 specified output path. It will strip out any items associated with the inventory item.</p>
 <p>Args:
@@ -150,15 +203,21 @@ into additional type-classified tags.</p>
     the collection structure of a library. Defaults to None.</p>
 <p>Returns:
     list: List of additional tags as compound, type-classified strings containing a type and term.</p></div>
-<div class="autodoc-signature"><code><strong>get_inventory_files</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-signature"><code><strong>get_inventory_files</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item=None</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"><p>To facilitate efficient access to larger libraries, we established a method of building and maintaining
 a specific item in the library where we cache inventory data as JSON files which can be retrieved in lieu
-of what can be a time-consuming pull of the entire recordset via the API.</p>
+of what can be a time-consuming pull of the entire recordset via the API. If the inventory item is not
+explicitly provided, the inventory_item_key() function is used to try and find it.</p>
 <p>Args:
-    inventory_item (str): Alphanumeric identifier for the inventory item in a given library</p>
+    inventory_item (str): Alphanumeric identifier for the inventory item in a given library. Defaults to None.</p>
 <p>Returns:
     list: List of dictionaries from the Zotero API containing the inventory item and its files</p></div>
-<div class="autodoc-signature"><code><strong>item_export</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">target_schema='xdd'</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_format='dataframe'</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-signature"><code><strong>inventory_item_key</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-docstring"><p>If necessary, this function can be used to identify the item containing the inventory cache in the library
+using a specific convention on the item's title - "Inventory:<library_id>".</p>
+<p>Returns:
+    str: Key (identifier) of the library item providing the cached inventory of items, collections, and tags.</p></div>
+<div class="autodoc-signature"><code><strong>item_export</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item=None</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">target_schema='xdd'</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_format='dataframe'</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"><p>This function packages the items for a given library using the cached inventory files and returns them for
 some particular use. We need to better work up the configuration details for this so that we can accept some
 form of configuration principals that are used to determine the appropriate mappings or transformations.</p>
@@ -185,7 +244,7 @@ item as JSON files.</p>
     inventory_item (str): Alphanumeric identifier for the inventory item in a given library</p>
 <p>Returns:
     dict: Dictionary containing lists for each set of cached records - items, collections, and tags</p></div>
-<div class="autodoc-signature"><code><strong>update_inventory</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
+<div class="autodoc-signature"><code><strong>update_inventory</strong></code><span class="autodoc-punctuation">(</span><em class="autodoc-param">self</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">inventory_item=None</em><span class="autodoc-punctuation">, </span><em class="autodoc-param">output_path='data'</em><span class="autodoc-punctuation">)</span></div>
 <div class="autodoc-docstring"><p>This function handles a periodic refresh of the cached inventory. It reads the current inventory
 files, determines the last version of the library cached, retrieves new records (items, collections, tags),
 and updates the cached files. This function can only be successfully operated using an API key with write
