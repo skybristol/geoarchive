@@ -1,13 +1,17 @@
 import os
 from pyzotero import zotero
+from dateutil import parser
 
 class Zot:
-    def __init__(self, library_id, schema_doc=None):
+    def __init__(self, library_id: str, schema_doc: dict, commit: bool = False):
         self.library_id = library_id
         self.schema_doc = schema_doc
 
         self.check_env()
         self.z_session()
+        self.z_item_from_schema()
+        if commit:
+            self.commit()
 
     def check_env(self):
         '''
@@ -42,25 +46,29 @@ class Zot:
             self.z_item = None
             return
         
-        z_item = {
+        self.z_item = {
             'itemType': 'report'
         }
-        z_item['title'] = self.schema_doc['name']
-        z_item['reportType'] = self.schema_doc['additionalType']
-        z_item['date'] = self.schema_doc['datePublished'].fromisoformat().year()
-        z_item['pages'] = self.schema_doc['numberOfPages']
-        z_item['language'] = 'en'
-        z_item['archive'] = 'ScienceBase'
-        z_item['archiveLocation'] = next((i['url'] for i in self.schema_doc['identifier'] if i['name'] == 'ScienceBase Item ID'), '')
-        z_item['tags'] = []
+        self.z_item['title'] = self.schema_doc['name']
+        self.z_item['reportType'] = self.schema_doc['additionalType']
+        self.z_item['date'] = str(parser.parse(self.schema_doc['datePublished']).year)
+        self.z_item['pages'] = self.schema_doc['numberOfPages']
+        self.z_item['language'] = 'en'
+        self.z_item['archive'] = 'ScienceBase'
+        self.z_item['archiveLocation'] = next((i['url'] for i in self.schema_doc['identifier'] if i['name'] == 'ScienceBase Item ID'), '')
+        self.z_item['tags'] = []
 
         for loc_obj in self.schema_doc['spatialCoverage']:
-            z_item['tags'].append({'tag': f"location:{loc_obj['name']}"})
+            self.z_item['tags'].append({'tag': f"location:{loc_obj['name']}"})
 
         for about_obj in self.schema_doc['about']:
-            z_item['tags'].append({'tag': f"{about_obj['additionalType']}:{about_obj['name']}"})
+            self.z_item['tags'].append({'tag': f"{about_obj['additionalType']}:{about_obj['name']}"})
 
-        z_create_response = self.z.create_items([z_item])
+    def commit(self):
+        '''
+        Commit the Zotero item to the Zotero library and update the URL with the w3id.org link.
+        '''
+        z_create_response = self.z.create_items([self.z_item])
 
         self.item = z_create_response['successful']['0']['data']
 

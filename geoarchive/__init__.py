@@ -1,5 +1,3 @@
-from . import zotero, sciencebase, geokb
-
 import hashlib
 import ahocorasick
 import numpy as np

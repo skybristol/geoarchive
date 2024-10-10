@@ -6,9 +6,6 @@ class GeoKB:
         self.check_env()
         self.wb_session()
 
-        self.geokb_commodities()
-        self.geokb_places()
-
     def check_env(self):
         REQUIRED_ENV_VARS = [
             'WB_SPARQL_ENDPOINT',
